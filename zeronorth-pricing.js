@@ -7,15 +7,16 @@
   var FAMILIES = {
     VESSEL: 'Vessel',
     VOYAGE: 'Voyage',
-    FUEL:   'Fuel'
+    FUEL:   'Fuel',
+    ERP:    'ERP'
   };
 
   var PRODUCTS = [
     // VESSEL
-    { id:'smartship-professional', name:'SMARTShip Professional', family:FAMILIES.VESSEL, monthlyPerUnitFee:1750, oneTimePerUnitFee:15000, unitName:'vessel',
-      tooltip:'Following installation of ZeroNorth\'s high-frequency sensor equipment, SMARTShip Professional leverages real-time, high-frequency sensor data from shipboard systems to deliver advanced analytics, proactive maintenance, and fleet-wide optimisation. Built for full-fleet digital integration, it enables owners and managers to drive operational efficiency, safety, compliance, and profitability' },
-    { id:'smartship-prime', name:'SMARTShip Prime', family:FAMILIES.VESSEL, monthlyPerUnitFee:700, oneTimePerUnitFee:500, unitName:'vessel',
-      tooltip:'A cost-effective, noon-report-based version of SMARTShip designed for vessels without high-frequency sensor data. It consolidates key performance analytics, regulatory monitoring, and reporting into a unified platform using manual data submissions, AIS, and weather data. It serves as a starting point for digitalisation without requiring hardware investment' },
+    { id:'smartship-professional-cloud', name:'SMARTShip Professional (Cloud)', family:FAMILIES.VESSEL, monthlyPerUnitFee:1750, oneTimePerUnitFee:500, unitName:'vessel',
+      tooltip:'Connecting directly to the customer\'s high-frequency IoT provider, SMARTShip Professional (Cloud) leverages real-time, high-frequency sensor data from shipboard systems to deliver advanced analytics, proactive maintenance, and fleet-wide optimisation. Built for full-fleet digital integration, it enables owners and managers to drive operational efficiency, safety, compliance, and profitability.' },
+    { id:'smartship-professional-edge', name:'SMARTShip Professional (Edge)', family:FAMILIES.VESSEL, monthlyPerUnitFee:1750, oneTimePerUnitFee:15000, unitName:'vessel',
+      tooltip:'Following installation of ZeroNorth\'s high-frequency sensor equipment, SMARTShip Professional (Edge) leverages real-time, high-frequency sensor data from shipboard systems to deliver advanced analytics, proactive maintenance, and fleet-wide optimisation. Built for full-fleet digital integration, it enables owners and managers to drive operational efficiency, safety, compliance, and profitability.' },
     { id:'charter-select', name:'Charter Select', family:FAMILIES.VESSEL, monthlyFlatFee:3000,
       tooltip:'A data-driven tool for pre-fixture analysis, helping users compare and select the best-performing vessel using accurate predictions' },
 
@@ -35,7 +36,11 @@
     { id:'bunker-pricer', name:'Bunker Pricer', family:FAMILIES.FUEL, monthlyFlatFee:2500,
       tooltip:'A market intelligence platform providing precise, transaction-backed live and forward bunker fuel prices across 170+ global ports, accessed via web interface and data exports' },
     { id:'ebdn', name:'eBDN', family:FAMILIES.FUEL, monthlyPerUnitFee:400, unitName:'barge',
-      tooltip:'A digital solution for creating, managing, and sharing electronic Bunker Delivery Notes (eBDNs) and associated documentation, replacing manual paper-based processes' }
+      tooltip:'A digital solution for creating, managing, and sharing electronic Bunker Delivery Notes (eBDNs) and associated documentation, replacing manual paper-based processes' },
+
+    // ERP
+    { id:'shippalm', name:'ShipPalm', family:FAMILIES.ERP,
+      tooltip:'ZeroNorth\'s ERP platform for end-to-end ship management — covering crewing, technical management, procurement, finance, and operations in one connected system.' }
   ];
 
   var IMPLEMENTATION_FEE = 4500;
@@ -59,13 +64,16 @@
 
   function getImplFees(){
     var ids = Object.keys(state.selectedProducts).filter(function(k){ return state.selectedProducts[k]; });
-    // Voyage Implementation: applies if VoyOps or VesRep is selected
+    // Voyage Implementation: applies if Voyage Optimisation or Vessel Reporting is selected
     var voyage = ids.indexOf('voyage-optimisation') !== -1 || ids.indexOf('vessel-reporting') !== -1;
-    // Vessel Implementation: applies if SMARTShip Professional or SMARTShip Prime is selected
-    var vessel = ids.indexOf('smartship-professional') !== -1 || ids.indexOf('smartship-prime') !== -1;
+    // Vessel Implementation: applies if any SMARTShip Professional is selected
+    var vessel = ids.indexOf('smartship-professional-cloud') !== -1
+              || ids.indexOf('smartship-professional-edge') !== -1;
     // Fuel Implementation: applies if Bunker Procurement or eBDN is selected (not Pricer alone)
     var fuel = ids.indexOf('bunker-procurement') !== -1 || ids.indexOf('ebdn') !== -1;
-    return { vessel: vessel, voyage: voyage, fuel: fuel };
+    // ERP Implementation: applies if ShipPalm is selected
+    var erp = ids.indexOf('shippalm') !== -1;
+    return { vessel: vessel, voyage: voyage, fuel: fuel, erp: erp };
   }
 
   function findProduct(id){ for (var i=0;i<PRODUCTS.length;i++) if (PRODUCTS[i].id===id) return PRODUCTS[i]; return null; }
@@ -78,6 +86,7 @@
     if (implFees.vessel) { oneTimeSum += IMPLEMENTATION_FEE; oneTimeItems.push({ description:'Vessel Implementation Fee', amount:IMPLEMENTATION_FEE }); }
     if (implFees.voyage) { oneTimeSum += IMPLEMENTATION_FEE; oneTimeItems.push({ description:'Voyage Implementation Fee', amount:IMPLEMENTATION_FEE }); }
     if (implFees.fuel)   { oneTimeSum += IMPLEMENTATION_FEE; oneTimeItems.push({ description:'Fuel Implementation Fee', amount:IMPLEMENTATION_FEE }); }
+    if (implFees.erp)    { oneTimeSum += IMPLEMENTATION_FEE; oneTimeItems.push({ description:'ERP Implementation Fee', amount:IMPLEMENTATION_FEE }); }
 
     PRODUCTS.forEach(function(p){
       if (state.selectedProducts[p.id] && p.oneTimePerUnitFee) {
@@ -85,7 +94,7 @@
         if (c > 0) {
           var cost = c * p.oneTimePerUnitFee;
           oneTimeSum += cost;
-          var label = p.id === 'smartship-professional'
+          var label = p.id === 'smartship-professional-edge'
             ? 'SMARTShip High-Frequency Equipment '+c+' '+p.unitName+'s'
             : 'Onboarding: '+p.name+' '+c+' '+p.unitName+'s';
           oneTimeItems.push({ description:label, amount:cost });
@@ -152,7 +161,7 @@
   function renderProducts(){
     var root = document.getElementById('zn-products');
     var html = '';
-    var families = [FAMILIES.VESSEL, FAMILIES.VOYAGE, FAMILIES.FUEL];
+    var families = [FAMILIES.VESSEL, FAMILIES.VOYAGE, FAMILIES.FUEL, FAMILIES.ERP];
     families.forEach(function(family){
       html += '<div class="zn-family">';
       html += '<h3>'+family+'</h3>';
@@ -216,7 +225,7 @@
     if (p.id === 'bunker-pricer') rows.push(cb('addon-bunkerPricerApi','Bunker Pricer API'));
     if (p.id === 'voyage-optimisation') {
       rows.push(cb('addon-voyopsZnOnboard','ZN Onboard','ZeroNorth Onboard enables Customer to allow for a vessel master and crew on a particular vessel to access certain key planning features of the Voyage Optimisation Solution, including generating optimised voyage plans prior to a vessel\u2019s departure and enroute and live tracking of ongoing voyages and updated weather forecasts.'));
-      rows.push(cb('addon-voyopsProfServices','Professional Services','Pre-voyage, ZeroNorth will generate the initial VOP to lighten the workload for the customer. Further, as part of professional service package, ZeroNorth will share updated VOP\u2019s both in normal- and bad weather conditions ensuring customers always have access to safe and commercially optimal routes. Lastly, customers will gain access to mid-of-voyage and end-of-voyage reports to help charterers access vessel performance against TC terms.'));
+      rows.push(cb('addon-voyopsProfServices','Professional Services','Pre-voyage, ZeroNorth will assist the customer with generating the initial Voyage Optimisation Plan to lighten the workload for the customer. Further, as part of professional service package, ZeroNorth will share updated voyage plans in normal- and bad weather conditions ensuring customers always have access to safe and commercially optimal routes.'));
     }
 
     var valid = rows.filter(function(r){ return !!r; });
@@ -243,7 +252,8 @@
     var rows = [
       { key:'vessel', family:FAMILIES.VESSEL, label:'Vessel Implementation fee', tooltip:'Covers product training, tenant creation and configuration, data migration and backfill, and general orchestration of the onboarding process' },
       { key:'voyage', family:FAMILIES.VOYAGE, label:'Voyage Implementation fee', tooltip:'Covers product training, tenant creation and configuration, data backfilling, and general orchestration of the onboarding process' },
-      { key:'fuel',   family:FAMILIES.FUEL,   label:'Fuel Implementation fee', tooltip:'Covers product training, tenant creation and configuration, and general orchestration of the onboarding process' }
+      { key:'fuel',   family:FAMILIES.FUEL,   label:'Fuel Implementation fee', tooltip:'Covers product training, tenant creation and configuration, and general orchestration of the onboarding process' },
+      { key:'erp',    family:FAMILIES.ERP,    label:'ERP Implementation fee', tooltip:'Covers ShipPalm product training, tenant creation and configuration, data migration, and general orchestration of the onboarding process' }
     ];
     var html = rows.map(function(r){
       if (!fams[r.family]) return '';
@@ -281,6 +291,7 @@
     if (fees.vessel) items.push('Vessel implementation');
     if (fees.voyage) items.push('Voyage implementation');
     if (fees.fuel)   items.push('Fuel implementation');
+    if (fees.erp)    items.push('ERP implementation');
 
     // Add-ons (visible: just the toggles that are on)
     var addonLabels = {
@@ -511,9 +522,10 @@
 
     // Tier "Customise this plan" buttons — pre-select products and scroll to builder
     var tierPresets = {
-      vessel: ['smartship-professional'],
+      vessel: ['smartship-professional-cloud'],
       voyage: ['voyage-optimisation', 'vessel-reporting'],
-      fuel:   ['bunker-pricer', 'bunker-procurement']
+      fuel:   ['bunker-pricer', 'bunker-procurement'],
+      erp:    ['shippalm']
     };
     document.querySelectorAll('.zn-tier-cta').forEach(function(btn){
       btn.addEventListener('click', function(){
