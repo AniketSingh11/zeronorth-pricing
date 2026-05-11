@@ -480,12 +480,25 @@
    * INIT
    * ========================================================= */
   function delegate(selector, evt, handler){
-    document.getElementById('zn-builder').addEventListener(evt, function(e){
-      if (e.target.matches(selector)) handler(e);
+    var builder = document.getElementById('zn-builder');
+    if (!builder) return;
+
+    builder.addEventListener(evt, function(e){
+      var target = e.target.closest ? e.target.closest(selector) : null;
+      if (!target || !builder.contains(target)) return;
+      handler({ target: target, originalEvent: e });
     });
   }
 
   function init(){
+    var builder = document.getElementById('zn-builder');
+    if (!builder || !document.getElementById('zn-products') || !document.getElementById('zn-continue') || !document.getElementById('zn-back')) {
+      return false;
+    }
+
+    if (state.__initialized) return true;
+    state.__initialized = true;
+
     renderProducts();
     renderAll();
 
@@ -520,31 +533,49 @@
       });
     }
 
-    // Tier "Customise this plan" buttons — pre-select products and scroll to builder
+    // Tier "Customise this plan" buttons — pre-select products and scroll to builder.
+    // This uses event delegation so it still works when Webflow loads scripts before/after the embed markup.
     var tierPresets = {
       vessel: ['smartship-professional-cloud'],
       voyage: ['voyage-optimisation', 'vessel-reporting'],
       fuel:   ['bunker-pricer', 'bunker-procurement'],
       erp:    ['shippalm']
     };
-    document.querySelectorAll('.zn-tier-cta').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var tier = btn.getAttribute('data-tier');
-        var preset = tierPresets[tier] || [];
-        // Reset selections so each plan choice gives a clean starting state
-        state.selectedProducts = {};
-        preset.forEach(function(pid){ state.selectedProducts[pid] = true; });
-        renderAll();
-        // Scroll the user to the builder
-        var target = document.querySelector('.zn-main');
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+
+    builder.addEventListener('click', function(e){
+      var btn = e.target.closest ? e.target.closest('.zn-tier-cta') : null;
+      if (!btn || !builder.contains(btn)) return;
+
+      var tier = btn.getAttribute('data-tier');
+      var preset = tierPresets[tier] || [];
+
+      // Reset selections so each plan choice gives a clean starting state.
+      state.selectedProducts = {};
+      preset.forEach(function(pid){ state.selectedProducts[pid] = true; });
+      renderAll();
+
+      // Scroll the user to the builder.
+      var target = document.querySelector('.zn-main');
+      if (target && target.scrollIntoView) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
+
+    return true;
+  }
+
+  function boot(attemptsLeft){
+    if (init()) return;
+    if (attemptsLeft <= 0) {
+      console.warn('[ZN] Pricing builder could not initialise because required embed elements were not found.');
+      return;
+    }
+    setTimeout(function(){ boot(attemptsLeft - 1); }, 100);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', function(){ boot(100); });
   } else {
-    init();
+    boot(100);
   }
 })();
